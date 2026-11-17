@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Back to spod</title>
+<!--
+  The relay for signing in to Spotify, served by GitHub Pages at
+  https://birarda.github.io/spod/callback/. Spotify only redirects to HTTPS
+  or a loopback address, so it can't send a phone straight back to spod on
+  the local network. It sends it here instead, and this page sends it on to
+  the spod page the sign-in started on, whose address spod put in the OAuth
+  state after a "~". spod signs in with PKCE, so the code is useless without
+  the verifier, which never leaves spod. Nothing is stored or sent anywhere
+  else, and only addresses on a local network are followed.
+-->
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="screen">
+<h1>spod</h1>
+<div id="going" hidden>
+  <p>Going back to spod at <span id="target"></span>…</p>
+  <a class="row" id="go"><span>Back to spod</span><svg viewBox="0 0 6 9" aria-hidden="true"><path d="M1 0h1v1h1v1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h1v-1h1v-1h1v-1h-1v-1h-1v-1h-1v-1h1z"/></svg></a>
+</div>
+<div id="manual" hidden>
+  <p id="why"></p>
+  <p>Copy this address, then open spod’s page, choose Spotify, and paste it there.</p>
+  <textarea class="field" id="address" readonly aria-label="Address to paste into spod"></textarea>
+  <button class="row" id="copy" type="button"><span>Copy</span><svg viewBox="0 0 6 9" aria-hidden="true"><path d="M1 0h1v1h1v1h1v1h1v1h1v1h-1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h1v-1h1v-1h1v-1h-1v-1h-1v-1h-1v-1h1z"/></svg></button>
+</div>
+<noscript><p>Turn on JavaScript to go back to spod, or copy this page’s address and paste it into spod’s page.</p></noscript>
+</main>
+<script src="relay.js"></script>
+</body>
+</html>

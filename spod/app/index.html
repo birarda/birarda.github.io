@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>spod Preview</title>
+<!-- Installable: Share → Add to Home Screen on iOS, or Install on other
+     browsers, then it opens full screen and works offline (sw.js). -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="spod">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#e4e6e9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141416" media="(prefers-color-scheme: dark)">
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: a 4th-generation click-wheel iPod at true proportions (61 x 104 mm, ~7.9 px/mm),
+   measured from product photos and scaled as one piece to fit the viewport.
+   Light theme is the white model; dark theme is the 2004 U2 special edition (black front,
+   red wheel with white labels, glossy black center button). */
+:root {
+  --desk: #e4e6e9;
+  --ink: #2b2f36;
+  --ink-soft: #676d77;
+  --edge-hi: #ffffff;         /* rounded acrylic edge, highlight */
+  --edge-lo: #e3e4e6;         /* rounded acrylic edge, shade */
+  --face: #fbfbfa;            /* glossy acrylic front */
+  --face-shade: #eeefef;
+  --glass: #474d55;           /* thin frame around the LCD */
+  --wheel: #dcddde;           /* the white model's wheel is light grey with white labels */
+  --wheel-edge: #d2d3d5;
+  --wheel-ink: #ffffff;
+  --wheel-ink-on: #9da2a9;
+  --hub-hi: #ffffff;          /* flat white center button */
+  --hub: #fbfbfb;
+  --hub-edge: #e4e5e7;
+  --focus: #3b82c4;
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --desk: #141416; --ink: #e7e8ea; --ink-soft: #9a9fa8;
+  --edge-hi: #5a5b5e; --edge-lo: #000; --face: #0b0b0c; --face-shade: #050505; --glass: #1d2024;
+  --wheel: #e01c23; --wheel-edge: #c4151c; --wheel-ink: #fff; --wheel-ink-on: #ffd0d2;
+  --hub-hi: #5b5b5f; --hub: #111113; --hub-edge: #000; --focus: #6aa9e0; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --desk: #141416; --ink: #e7e8ea; --ink-soft: #9a9fa8;
+  --edge-hi: #5a5b5e; --edge-lo: #000; --face: #0b0b0c; --face-shade: #050505; --glass: #1d2024;
+  --wheel: #e01c23; --wheel-edge: #c4151c; --wheel-ink: #fff; --wheel-ink-on: #ffd0d2;
+  --hub-hi: #5b5b5f; --hub: #111113; --hub-edge: #000; --focus: #6aa9e0; color-scheme: dark;
+}
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0; background: var(--desk); color: var(--ink); font-family: var(--font-ui);
+  display: flex; flex-direction: column;
+  padding-top: max(20px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+/* margin-block: auto centers the stage when it fits and never clips it when it doesn't */
+.stage { margin-block: auto; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+
+/* --s is set by script so the whole device fits the viewport */
+.fit { --s: 1; width: calc(482px * var(--s)); height: calc(820px * var(--s)); }
+.device {
+  width: 482px; height: 820px; box-sizing: border-box; position: relative;
+  transform: scale(var(--s)); transform-origin: 0 0;
+  border-radius: 50px; padding: 7px;
+  /* the front's rounded acrylic edge catches light on the left and bottom */
+  background: linear-gradient(100deg, var(--edge-hi) 0%, var(--edge-lo) 12%, var(--edge-lo) 85%, var(--edge-hi) 100%);
+  box-shadow: 0 30px 60px -30px rgba(0,0,0,.45), 0 2px 6px rgba(0,0,0,.18);
+}
+.face {
+  position: relative; height: 100%; border-radius: 44px;
+  background: linear-gradient(180deg, var(--face) 0%, var(--face) 60%, var(--face-shade) 100%);
+  box-shadow: inset 0 0 8px rgba(0,0,0,.07);
+  overflow: hidden;
+}
+/* acrylic gloss */
+.face::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(165deg, rgba(255,255,255,.22) 0%, rgba(255,255,255,0) 30%);
+}
+/* screen: ~69% of the body's width, ~5.6% down from the top */
+.screen {
+  position: absolute; left: 50%; top: 39px; transform: translateX(-50%);
+  padding: 6px; border-radius: 6px; background: var(--glass);
+}
+/* the 160x128 LCD at 2 CSS px per pixel; the canvas holds it at 4 to show the pixel grid */
+.screen canvas { display: block; width: 320px; height: 256px; pointer-events: none; border-radius: 2px; }
+.screen .status {
+  position: absolute; inset: 6px; display: grid; place-items: center;
+  font-size: 15px; color: #181e2e; background: #d0dee6; text-align: center; padding: 16px; border-radius: 2px;
+}
+/* wheel: same width as the screen, centered ~69% down the body */
+.wheel {
+  --size: 332px;
+  position: absolute; left: 50%; top: 391px; transform: translateX(-50%);
+  width: var(--size); height: var(--size); border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, var(--wheel) 82%, var(--wheel-edge) 100%);
+  box-shadow: 0 0 0 1px var(--wheel-edge);
+  touch-action: none; cursor: grab; outline: none;
+}
+.wheel:active { cursor: grabbing; }
+.wheel:focus-visible { box-shadow: 0 0 0 1px var(--wheel-edge), 0 0 0 5px var(--focus); }
+.wheel .label {
+  position: absolute; color: var(--wheel-ink); pointer-events: none; transition: color .08s;
+  font: 700 16px/1 var(--font-ui); letter-spacing: .04em;
+}
+.wheel .label.on { color: var(--wheel-ink-on); }
+.wheel .menu { top: 22px; left: 50%; transform: translateX(-50%); }
+.wheel .play { bottom: 22px; left: 50%; transform: translateX(-50%); }
+.wheel .prev { left: 20px; top: 50%; transform: translateY(-50%); }
+.wheel .next { right: 20px; top: 50%; transform: translateY(-50%); }
+.wheel svg { width: 26px; height: 13px; fill: currentColor; display: block; }
+.hub {
+  /* same button on every model: ~35% of the wheel's diameter */
+  position: absolute; width: 34.6%; height: 34.6%; left: 32.7%; top: 32.7%; border-radius: 50%;
+  /* flat gloss: a reflection along the right edge, like the real button */
+  background: linear-gradient(105deg, var(--hub) 0%, var(--hub) 62%, var(--hub-hi) 84%, var(--hub) 100%);
+  box-shadow: 0 0 0 1px var(--hub-edge);
+  transition: filter .06s;
+}
+.hub.on { filter: brightness(.85); }
+.notes { max-width: 360px; text-align: center; font-size: 13px; line-height: 1.5; color: var(--ink-soft); margin: 0; }
+.notes kbd { font: inherit; font-size: 12px; padding: 0 5px; border: 1px solid var(--ink-soft); border-radius: 4px; color: var(--ink); }
+/* the Hold switch on the top edge, at the left as on the 4G: slid to Hold
+   it shows orange */
+.hold {
+  position: absolute; top: -9px; left: 64px; width: 48px; height: 13px; padding: 0;
+  border: none; border-radius: 6px 6px 0 0; background: var(--edge-lo); cursor: pointer; overflow: hidden;
+}
+.hold .slot { position: absolute; left: 4px; right: 4px; top: 3px; bottom: 0; border-radius: 4px 4px 0 0; background: #2b2f36; }
+.hold .orange { position: absolute; left: 7px; top: 5px; width: 14px; bottom: 0; border-radius: 2px 2px 0 0; background: #f28a1c; }
+.hold .thumb {
+  position: absolute; top: 4px; left: 6px; width: 18px; bottom: 0; border-radius: 3px 3px 0 0;
+  background: var(--face); box-shadow: 0 0 0 1px var(--edge-lo); transition: left .12s;
+}
+.hold[aria-checked="true"] .thumb { left: 24px; }
+.hold:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .hold .thumb { transition: none; } }
+/* Signing in to Spotify, under the iPod */
+.spotify {
+  width: 100%; max-width: 360px; box-sizing: border-box; padding: 14px 16px; border-radius: 12px;
+  border: 1px solid var(--edge-lo); background: var(--face); font-size: 13px; line-height: 1.5; color: var(--ink-soft);
+}
+.spotify h2 { margin: 0 0 6px; font-size: 15px; color: var(--ink); }
+.spotify p { margin: 0 0 10px; }
+.spotify code { font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+.spotify label { display: block; color: var(--ink); margin-bottom: 4px; }
+.spotify .step { margin-top: 14px; }
+/* The page doesn't select text, so the wheel can be dragged; this can be,
+   whole, to copy. */
+.spotify a { color: var(--ink); font-weight: 600; }
+.spotify .copyable { -webkit-user-select: all; user-select: all; -webkit-touch-callout: default; }
+.spotify input, .spotify textarea {
+  display: block; width: 100%; box-sizing: border-box; margin-bottom: 10px; padding: 8px 10px;
+  font: 14px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink);
+  background: var(--desk); border: 1px solid var(--ink-soft); border-radius: 8px;
+  -webkit-user-select: text; user-select: text;
+}
+.spotify textarea { resize: vertical; font-size: 12px; overflow-wrap: anywhere; }
+.spotify input:focus-visible, .spotify textarea:focus-visible, .spotify button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.spotify button {
+  font: inherit; font-size: 14px; font-weight: 600; color: var(--face); background: var(--ink);
+  border: none; border-radius: 999px; padding: 7px 18px; cursor: pointer;
+}
+.spotify .error { color: #c4151c; margin: 10px 0 0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .spotify .error { color: #ff8a8f; } }
+:root[data-theme="dark"] .spotify .error { color: #ff8a8f; }
+.sound {
+  font: inherit; font-size: 13px; color: var(--ink-soft); background: none; border: 1px solid var(--ink-soft);
+  border-radius: 999px; padding: 4px 12px; cursor: pointer;
+}
+.sound:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .hub, .wheel .label { transition: none; } }
+</style>
+</head>
+<body>
+<main class="stage">
+<div class="fit" id="fit">
+  <div class="device">
+    <button class="hold" id="hold" type="button" role="switch" aria-checked="false" aria-label="Hold switch">
+      <span class="slot"></span><span class="orange"></span><span class="thumb"></span>
+    </button>
+    <div class="face">
+      <div class="screen">
+        <canvas id="canvas" width="640" height="512" aria-label="spod screen"></canvas>
+        <div class="status" id="status">Loading the UI…</div>
+      </div>
+      <div class="wheel" id="wheel" tabindex="0" role="application"
+           aria-label="Click wheel. Drag in a circle to scroll, tap the center to select, tap Menu to go back, and the bottom, left and right for play/pause, previous and next. Arrow keys, Enter, Escape and Space also work.">
+        <span class="label menu" data-zone="menu">MENU</span>
+        <span class="label prev" data-zone="prev"><svg viewBox="0 0 30 16"><path d="M0 0h3v16H0zM3 8l12-8v16zM15 8l12-8v16z"/></svg></span>
+        <span class="label next" data-zone="next"><svg viewBox="0 0 30 16"><path d="M27 0h3v16h-3zM27 8 15 0v16zM15 8 3 0v16z"/></svg></span>
+        <span class="label play" data-zone="play"><svg viewBox="0 0 30 16"><path d="M0 0l12 8-12 8zM17 0h4v16h-4zM24 0h4v16h-4z"/></svg></span>
+        <div class="hub" id="hub"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<p class="notes">Drag around the wheel to scroll, tap the center to select, tap <b>MENU</b> to go back, hold it to switch the backlight. Pick a song (or Shuffle Songs) to get to Now Playing, where the wheel sets the volume, the center button switches to scrubbing, and holding it opens Speakers. Keyboard: <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd> (hold for backlight), <kbd>Space</kbd> play/pause, <kbd>←</kbd> <kbd>→</kbd> previous/next, <kbd>H</kbd> the Hold switch (on the top edge).<span id="sample-note"><br>Library and speakers are sample data, not your Spotify or Sonos, and nothing makes a sound. Sign in to Spotify below to use your own.</span></p>
+<section class="spotify" aria-labelledby="spotify-title">
+  <h2 id="spotify-title">Spotify</h2>
+  <div id="signed-out" hidden>
+    <p>Sign in with your own Spotify app, as on spod. Its Redirect URIs, in Spotify’s developer dashboard, need spod’s relay:</p>
+    <p><code class="copyable" id="redirect-uri"></code></p>
+    <p>Then paste the app’s Client ID here.</p>
+    <label for="client-id">Client ID</label>
+    <input id="client-id" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="latin" placeholder="32 letters and numbers">
+    <button id="sign-in" type="button">Sign In</button>
+    <div id="paste-step" hidden>
+      <p class="step" id="open-spotify-step" hidden><a id="open-spotify" target="_blank" rel="noopener">Open Spotify’s sign-in page</a></p>
+      <p class="step">Once you’ve agreed on Spotify’s page, it goes to spod’s relay page, which can’t bring you back here. Copy the whole address from the address bar, or the one the relay shows, even if the page doesn’t load, and paste it here.</p>
+      <label for="returned">Address Spotify went to</label>
+      <textarea id="returned" rows="3" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://birarda.github.io/spod/callback/?code=…"></textarea>
+      <button id="finish" type="button">Finish Signing In</button>
+    </div>
+  </div>
+  <div id="signed-in" hidden>
+    <p>Signed in: Music has your playlists and albums, and songs play through Spotify Connect, on the speaker chosen in Extras → Speakers.</p>
+    <button id="sign-out" type="button">Sign Out</button>
+  </div>
+  <p class="error" id="spotify-error" role="alert" hidden></p>
+</section>
+<button class="sound" id="sound" type="button" aria-pressed="true">Click sound: on</button>
+</main>
+<script type="module">
+import init, { frame, button, forget_press, hold, wheel as wheelAt, turn, screen_size } from "./pkg/spod.js";
+
+// --- fit the device to the viewport ----------------------------------------
+const fit = document.getElementById("fit");
+function fitDevice() {
+  const cs = getComputedStyle(document.body);
+  const availW = document.body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const availH = window.innerHeight - 150; // leave room for the notes below
+  const s = Math.max(0.45, Math.min(1, availW / 482, availH / 820));
+  fit.style.setProperty("--s", s.toFixed(4));
+}
+fitDevice();
+window.addEventListener("resize", fitDevice);
+
+const status = document.getElementById("status");
+const canvas = document.getElementById("canvas");
+let ready = false;
+
+// --- Spotify ---------------------------------------------------------------
+// The page signs in to Spotify with PKCE, as spod's admin interface does, and
+// keeps the sign-in in local storage for the UI (src/web/spotify.rs), which
+// renews it. Keep the keys in step with that file.
+//
+// Spotify returns to spod's relay page (callback/ on the pages branch), the
+// redirect URI spod's Spotify app already has, wherever this page is
+// served. The relay only goes on to spod on a local network, so here it
+// shows the address Spotify sent, and you paste it back into this page,
+// which keeps the PKCE verifier.
+const SPOTIFY = {
+  clientId: "spod.spotify.client_id", token: "spod.spotify.token",
+  verifier: "spod.spotify.verifier", state: "spod.spotify.state",
+};
+// The same as the native app's.
+const SCOPES = "user-library-read playlist-read-private user-read-playback-state user-modify-playback-state";
+const redirectUri = "https://birarda.github.io/spod/callback/";
+const store = {
+  get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+  set(key, value) { try { localStorage.setItem(key, value); } catch {} },
+  remove(key) { try { localStorage.removeItem(key); } catch {} },
+};
+const spotifyError = document.getElementById("spotify-error");
+const clientIdInput = document.getElementById("client-id");
+document.getElementById("redirect-uri").textContent = redirectUri;
+clientIdInput.value = store.get(SPOTIFY.clientId) || "";
+
+const pasteStep = document.getElementById("paste-step");
+const returnedInput = document.getElementById("returned");
+// A sign-in under way survives a reload, so show where it's got to.
+pasteStep.hidden = !store.get(SPOTIFY.verifier);
+
+function showSpotifyError(message) {
+  spotifyError.textContent = message; spotifyError.hidden = !message;
+}
+const signedIn = () => !!(store.get(SPOTIFY.clientId) && store.get(SPOTIFY.token));
+// Signing out on the iPod forgets the sign-in too, so look now and then.
+let shownSignedIn = null;
+function renderSpotify() {
+  const now = signedIn();
+  if (now === shownSignedIn) return;
+  shownSignedIn = now;
+  document.getElementById("signed-in").hidden = !now;
+  document.getElementById("signed-out").hidden = now;
+}
+renderSpotify();
+setInterval(renderSpotify, 2000);
+// The sample data is shown when the page started signed out.
+document.getElementById("sample-note").hidden = signedIn();
+
+function base64url(bytes) {
+  return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+const randomString = (n) => base64url(crypto.getRandomValues(new Uint8Array(n)));
+
+// The PKCE verifier and state for the next sign-in, made ahead: Safari only
+// opens Spotify's tab straight from a tap, before anything is awaited.
+let next = null;
+async function prepare() {
+  const verifier = randomString(48), state = randomString(16);
+  const challenge = base64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)));
+  next = { verifier, state, challenge };
+}
+prepare();
+
+const openSpotify = document.getElementById("open-spotify");
+document.getElementById("sign-in").addEventListener("click", () => {
+  const id = clientIdInput.value.trim();
+  if (!/^[0-9a-f]{32}$/i.test(id)) {
+    showSpotifyError("A client ID is 32 letters and numbers, from your app’s page in Spotify’s dashboard.");
+    return;
+  }
+  if (!next) { showSpotifyError("Just a moment, then choose Sign In again."); return; }
+  showSpotifyError("");
+  const { verifier, state, challenge } = next;
+  store.set(SPOTIFY.clientId, id);
+  store.set(SPOTIFY.verifier, verifier);
+  store.set(SPOTIFY.state, state);
+  const url = "https://accounts.spotify.com/authorize?" + new URLSearchParams({
+    response_type: "code", client_id: id, scope: SCOPES, redirect_uri: redirectUri,
+    code_challenge_method: "S256", code_challenge: challenge, state,
+  });
+  // In a tab of its own, so this page, and its verifier, stay put. If the
+  // browser won't open one, a link to tap does instead; the page never
+  // leaves itself, which in a home-screen app would leave no way back.
+  pasteStep.hidden = false;
+  openSpotify.href = url;
+  openSpotify.parentElement.hidden = !!window.open(url, "_blank");
+  next = null;
+  prepare();
+});
+
+document.getElementById("finish").addEventListener("click", () => {
+  finishSignIn(returnedInput.value.trim())
+    .then(() => location.reload())
+    .catch((e) => showSpotifyError(e.message));
+});
+
+document.getElementById("sign-out").addEventListener("click", () => {
+  store.remove(SPOTIFY.token);
+  location.reload();
+});
+
+// The address the relay showed: swap its code for a sign-in.
+async function finishSignIn(address) {
+  let query;
+  try { query = new URL(address).searchParams; } catch { query = null; }
+  if (!query || (!query.has("code") && !query.has("error"))) {
+    throw new Error("That doesn’t look like the address Spotify went to. Copy the whole address, starting with https.");
+  }
+  const verifier = store.get(SPOTIFY.verifier), state = store.get(SPOTIFY.state);
+  if (query.has("error")) throw new Error("Spotify didn’t sign you in (" + query.get("error") + "). Choose Sign In to try again.");
+  if (!verifier || query.get("state") !== state) throw new Error("That address is from an earlier sign-in. Choose Sign In again.");
+  const response = await fetch("https://accounts.spotify.com/api/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "authorization_code", code: query.get("code"), redirect_uri: redirectUri,
+      client_id: store.get(SPOTIFY.clientId) || "", code_verifier: verifier,
+    }),
+  }).catch(() => {
+    // Offline, or somewhere that blocks requests to other sites, such as
+    // inside an embedded preview.
+    throw new Error("This page couldn’t reach Spotify to finish signing in. Check you’re online, and open spod’s page in the browser itself, not embedded in another site.");
+  });
+  const answer = await response.json().catch(() => ({}));
+  if (!response.ok || !answer.refresh_token) {
+    throw new Error("Spotify couldn’t finish signing you in (" + (answer.error_description || answer.error || response.status) + "). Choose Sign In to try again.");
+  }
+  store.set(SPOTIFY.token, JSON.stringify({
+    access_token: answer.access_token, refresh_token: answer.refresh_token,
+    expires_at: Date.now() + answer.expires_in * 1000,
+  }));
+  store.remove(SPOTIFY.verifier); store.remove(SPOTIFY.state);
+}
+
+// The UI renders at the iPod's 160x128, and wasm draws that as the LCD would
+// look into an RGBA buffer at screen_size(). Each animation frame, copy it to
+// the canvas if it changed.
+init().then((wasm) => {
+  const [w, h] = screen_size();
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const draw = () => {
+    const ptr = frame();
+    if (ptr) {
+      const bytes = new Uint8ClampedArray(wasm.memory.buffer, ptr, w * h * 4);
+      ctx.putImageData(new ImageData(bytes.slice(), w, h), 0, 0);
+    }
+    requestAnimationFrame(draw);
+  };
+  draw();
+  ready = true; status.hidden = true;
+}).catch((e) => {
+  status.textContent = "The UI failed to load: " + (e && e.message ? e.message : e);
+});
+
+// --- offline ---------------------------------------------------------------
+// The service worker keeps this build for offline use. It's written by
+// web/build.sh, so a page served straight from the source has none.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+
+// --- click sound -----------------------------------------------------------
+let soundOn = true, audio = null;
+try { soundOn = localStorage.getItem("spod-sound") !== "off"; } catch {}
+const soundBtn = document.getElementById("sound");
+function renderSound() { soundBtn.textContent = "Click sound: " + (soundOn ? "on" : "off"); soundBtn.setAttribute("aria-pressed", String(soundOn)); }
+renderSound();
+soundBtn.addEventListener("click", () => {
+  soundOn = !soundOn; renderSound();
+  try { localStorage.setItem("spod-sound", soundOn ? "on" : "off"); } catch {}
+});
+function tick() {
+  if (navigator.vibrate) { try { navigator.vibrate(4); } catch {} }
+  if (!soundOn) return;
+  try {
+    audio ??= new (window.AudioContext || window.webkitAudioContext)();
+    const t = audio.currentTime, osc = audio.createOscillator(), gain = audio.createGain();
+    osc.type = "square"; osc.frequency.setValueAtTime(2400, t);
+    gain.gain.setValueAtTime(0.05, t); gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.012);
+    osc.connect(gain).connect(audio.destination); osc.start(t); osc.stop(t + 0.015);
+  } catch {}
+}
+
+// --- buttons ---------------------------------------------------------------
+// The buttons and the wheel go to spod as the device's would, and spod times
+// them the same way, long presses included: Menu held switches the
+// backlight, Play/Pause held sleeps, and Previous and Next held scan.
+const labels = Object.fromEntries([...document.querySelectorAll("[data-zone]")].map((el) => [el.dataset.zone, el]));
+const hub = document.getElementById("hub");
+function flash(el) { if (!el) return; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 120); }
+function buttonDown(name) { if (ready) button(name, true); tick(); }
+function buttonUp(name) { if (ready) button(name, false); }
+function zoneAt({ x, y, d }) {
+  if (d < 0.38) return "select";
+  return Math.abs(y) > Math.abs(x) ? (y < 0 ? "menu" : "play") : (x < 0 ? "prev" : "next");
+}
+function flashZone(zone) { flash(zone === "select" ? hub : labels[zone]); }
+
+// --- the wheel -------------------------------------------------------------
+// Where the finger is goes to spod as the 4G's click wheel reports it: 96
+// positions a turn, clockwise. spod makes a step of every 4 (15°).
+const POSITIONS = 96;
+const STEP = Math.PI / 12;
+const wheel = document.getElementById("wheel");
+let drag = null;
+function polar(e) {
+  const r = wheel.getBoundingClientRect();
+  const x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
+  return { a: Math.atan2(y, x), d: Math.hypot(x, y) / (r.width / 2), x, y };
+}
+function touch(p) {
+  if (!ready) return;
+  const turn = (p.a + 2 * Math.PI) % (2 * Math.PI);
+  const steps = wheelAt(Math.floor(turn / (2 * Math.PI) * POSITIONS) % POSITIONS);
+  for (let i = 0; i < Math.min(Math.abs(steps), 3); i++) tick();
+}
+function lift() { if (ready) wheelAt(-1); }
+wheel.addEventListener("pointerdown", (e) => {
+  wheel.setPointerCapture(e.pointerId);
+  const p = polar(e);
+  // A button is down from the moment it's pressed, so holding it works. A
+  // press on one of the wheel's labels that turns into dragging round the
+  // wheel is forgotten.
+  const zone = zoneAt(p);
+  drag = { last: p.a, total: 0, start: p, pressed: zone };
+  flashZone(zone);
+  buttonDown(zone);
+  if (p.d >= 0.38) touch(p);
+  e.preventDefault();
+});
+wheel.addEventListener("pointermove", (e) => {
+  if (!drag || drag.start.d < 0.38) return; // dragging on the center button doesn't scroll
+  const p = polar(e);
+  let delta = p.a - drag.last;
+  if (delta > Math.PI) delta -= 2 * Math.PI;
+  if (delta < -Math.PI) delta += 2 * Math.PI;
+  drag.last = p.a; drag.total += Math.abs(delta);
+  if (drag.pressed && drag.total > STEP / 2) { drag.pressed = null; if (ready) forget_press(); }
+  touch(p);
+});
+function endDrag(e) {
+  if (!drag) return;
+  const { pressed } = drag;
+  drag = null;
+  lift();
+  if (!pressed) return;
+  if (e.type === "pointercancel") { if (ready) forget_press(); return; }
+  buttonUp(pressed);
+}
+wheel.addEventListener("pointerup", endDrag);
+wheel.addEventListener("pointercancel", endDrag);
+
+// --- the Hold switch -------------------------------------------------------
+const holdSwitch = document.getElementById("hold");
+function toggleHold() {
+  const on = holdSwitch.getAttribute("aria-checked") !== "true";
+  holdSwitch.setAttribute("aria-checked", String(on));
+  if (ready) hold(on);
+}
+holdSwitch.addEventListener("click", toggleHold);
+
+// --- keyboard --------------------------------------------------------------
+const KEYS = {
+  Enter: "select", Escape: "menu", Backspace: "menu",
+  " ": "play", ArrowLeft: "prev", ArrowRight: "next",
+};
+// Keys typed into the Spotify panel are for it, not the iPod.
+const inPanel = (e) => e.target instanceof Element && !!e.target.closest(".spotify");
+document.addEventListener("keydown", (e) => {
+  if (e.target === soundBtn || inPanel(e)) return;
+  // Enter and Space on the focused Hold switch flip it, as on any button.
+  if (e.target === holdSwitch && (e.key === "Enter" || e.key === " ")) return;
+  if ((e.key === "h" || e.key === "H") && !e.repeat) { toggleHold(); return; }
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    e.preventDefault();
+    if (ready) turn(e.key === "ArrowDown" ? 1 : -1);
+    tick();
+    return;
+  }
+  const name = KEYS[e.key];
+  if (!name) return;
+  e.preventDefault();
+  if (e.repeat) return;
+  if (name !== "menu") flashZone(name);
+  buttonDown(name);
+});
+document.addEventListener("keyup", (e) => {
+  const name = KEYS[e.key];
+  if (!name || e.target === soundBtn || e.target === holdSwitch || inPanel(e)) return;
+  if (name === "menu") flash(labels.menu);
+  buttonUp(name);
+});
+</script>
+</body>
+</html>

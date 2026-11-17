@@ -1,0 +1,26 @@
+/* The relay page, styled like spod's web page. */
+@font-face { font-family: "ChicagoFLF"; src: url("ChicagoFLF.ttf") format("truetype"); }
+:root { --paper: rgb(208 222 230); --ink: rgb(24 30 46); --desk: #e4e6e9; --glass: #474d55; color-scheme: light; }
+@media (prefers-color-scheme: dark) { :root { --desk: #141416; --glass: #1d2024; } }
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; background: var(--desk); color: var(--ink);
+  font: 16px/1.3 "ChicagoFLF", system-ui, sans-serif;
+  display: flex; justify-content: center; align-items: flex-start; padding: 16px;
+}
+.screen { width: 100%; max-width: 480px; background: var(--paper); border: 6px solid var(--glass); border-radius: 10px; padding-bottom: 8px; }
+h1 { margin: 0; height: 40px; font: inherit; line-height: 38px; text-align: center; border-bottom: 2px solid var(--ink); }
+p { margin: 0; padding: 8px 10px; font-size: 14px; overflow-wrap: anywhere; }
+.field {
+  display: block; width: calc(100% - 20px); margin: 4px 10px; padding: 9px 8px; min-height: 5em;
+  border: 2px solid var(--ink); border-radius: 0; background: var(--paper); color: var(--ink);
+  font: inherit; font-size: 16px; resize: vertical; -webkit-appearance: none; appearance: none;
+}
+.row {
+  display: flex; align-items: center; width: 100%; min-height: 44px; padding: 6px 10px 6px 8px;
+  border: 0; background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer;
+}
+.row span { flex: 1; }
+.row:hover, .row:focus-visible, .row:active { background: var(--ink); color: var(--paper); outline: none; }
+svg { width: 12px; height: 18px; fill: currentColor; shape-rendering: crispEdges; }
+[hidden] { display: none !important; }
