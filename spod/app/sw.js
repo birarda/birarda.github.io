@@ -1,8 +1,8 @@
 // The web preview's service worker, so it works offline once installed to the
-// home screen. web/build.sh writes it to web/sw.js with 72b1bbebb8ef set from
+// home screen. web/build.sh writes it to web/sw.js with 5ef32dc1751e set from
 // the build's files, so a new build is a new cache: the page, its script and
 // its wasm always come from the same build.
-const VERSION = "72b1bbebb8ef";
+const VERSION = "5ef32dc1751e";
 const CACHE = "spod-" + VERSION;
 const FILES = [
   "./",
