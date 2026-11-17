@@ -68,6 +68,23 @@ export function turn(steps) {
 }
 
 /**
+ * The commit this build is from, as Settings → sPod → Version shows it.
+ * @returns {string}
+ */
+export function version() {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.version();
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * Where a finger is on the on-page wheel: 0 to 95 clockwise, as the 4G's
  * click wheel reports it, or -1 when it's lifted. It's decoded as the
  * device's wheel is. Returns how many steps that turned, for the page's
