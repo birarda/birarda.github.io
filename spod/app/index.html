@@ -178,6 +178,12 @@ body {
   font: inherit; font-size: 13px; color: var(--ink-soft); background: none; border: 1px solid var(--ink-soft);
   border-radius: 999px; padding: 4px 12px; cursor: pointer;
 }
+/* Which build this is: the commit, to copy into a bug report. */
+.version {
+  margin: 0; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink-soft);
+  -webkit-user-select: all; user-select: all;
+}
+.version:empty { display: none; }
 .sound:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .hub, .wheel .label { transition: none; } }
 </style>
@@ -230,9 +236,10 @@ body {
   <p class="error" id="spotify-error" role="alert" hidden></p>
 </section>
 <button class="sound" id="sound" type="button" aria-pressed="true">Click sound: on</button>
+<p class="version" id="version"></p>
 </main>
 <script type="module">
-import init, { frame, button, forget_press, hold, wheel as wheelAt, turn, screen_size } from "./pkg/spod.js";
+import init, { frame, button, forget_press, hold, wheel as wheelAt, turn, screen_size, version } from "./pkg/spod.js";
 
 // --- fit the device to the viewport ----------------------------------------
 const fit = document.getElementById("fit");
@@ -403,15 +410,34 @@ init().then((wasm) => {
   };
   draw();
   ready = true; status.hidden = true;
+  document.getElementById("version").textContent = "spod " + version();
 }).catch((e) => {
   status.textContent = "The UI failed to load: " + (e && e.message ? e.message : e);
 });
 
-// --- offline ---------------------------------------------------------------
+// --- offline, and updates ---------------------------------------------------
 // The service worker keeps this build for offline use. It's written by
 // web/build.sh, so a page served straight from the source has none.
+//
+// Registering checks for a new build, bypassing the HTTP cache, but iOS
+// resumes a home-screen app rather than loading it again, so it checks
+// each time the app comes back on screen too. A new build's worker takes
+// over at once (sw.js), and the page then reloads to use it. The first
+// install doesn't: this page is that build.
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  let controlled = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!controlled) { controlled = true; return; }
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((registration) => {
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") registration.update().catch(() => {});
+    });
+  }).catch(() => {});
 }
 
 // --- click sound -----------------------------------------------------------
