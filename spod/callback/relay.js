@@ -19,14 +19,17 @@ function isLocal(host) {
   return !host.includes(".") || /\.(local|lan|home\.arpa|internal)$/.test(host);
 }
 
-// The spod page the sign-in started on, from the state, or null.
+// The callback of the spod plugin the sign-in started on, from the state,
+// or null. Only a plugin's callback, `/plugins/<id>/callback`, on a local
+// network, so this page can't open any other page.
 function returnAddress(state) {
   const at = state.indexOf("~");
   if (at < 0) return null;
   try {
     const url = new URL(state.slice(at + 1));
-    if ((url.protocol === "http:" || url.protocol === "https:") && isLocal(url.hostname)) {
-      return url.origin;
+    if ((url.protocol === "http:" || url.protocol === "https:") && isLocal(url.hostname) &&
+        /^\/plugins\/[a-z0-9-]+\/callback$/.test(url.pathname)) {
+      return url.origin + url.pathname;
     }
   } catch (e) {}
   return null;
@@ -51,15 +54,15 @@ document.getElementById("copy").addEventListener("click", () => {
 });
 
 if (!params.has("code") && !params.has("error")) {
-  showManual("This page is for coming back to spod after signing in to Spotify, but Spotify didn’t send anything.");
+  showManual("This page is for coming back to spod after signing in, but nothing was sent back.");
 } else if (!target) {
   showManual("This page couldn’t tell which spod to go back to.");
 } else if (sessionStorage.getItem("spod-relayed") === location.href) {
   // Back here after going on: spod's page probably didn't open.
   showManual("If spod’s page didn’t open, this phone or computer may not be on the same network as spod.");
 } else {
-  const next = target + "/spotify/callback" + location.search;
-  document.getElementById("target").textContent = target;
+  const next = target + location.search;
+  document.getElementById("target").textContent = new URL(target).host;
   document.getElementById("go").href = next;
   document.getElementById("going").hidden = false;
   try { sessionStorage.setItem("spod-relayed", location.href); } catch (e) {}

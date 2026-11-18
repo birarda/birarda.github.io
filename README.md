@@ -8,8 +8,9 @@ Built files for [spod](https://github.com/birarda/spod), an iPod-style
 controller for Spotify and Sonos. Their source is in that repository, which
 is private; these are public so GitHub Pages can serve them.
 
-- `spod/callback/`: the relay that brings a Spotify sign-in back to spod
-  on the local network, or shows the address to paste. It's the redirect
+- `spod/callback/`: the relay that brings a sign-in, such as Spotify's,
+  back to the spod plugin it started from on the local network, or shows
+  the address to paste. It's the redirect
   URI of spod's Spotify app, `https://birarda.github.io/spod/callback/`,
   so it must stay at this address.
 - `spod/app/`: spod's web preview, which can be added to a phone's home
