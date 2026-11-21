@@ -14,6 +14,17 @@ export function button(name, down) {
 }
 
 /**
+ * Whether the page clicks as the wheel turns and buttons are pressed: with
+ * Settings → Clicker on Speaker or Both, the page being the speaker.
+ * Remembers the setting in the browser when it's changed.
+ * @returns {boolean}
+ */
+export function clicks() {
+    const ret = wasm.clicks();
+    return ret !== 0;
+}
+
+/**
  * Forgets a press on one of the wheel's labels that turned into dragging
  * round it.
  */

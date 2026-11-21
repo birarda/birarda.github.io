@@ -174,17 +174,12 @@ body {
 .spotify .error { color: #c4151c; margin: 10px 0 0; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .spotify .error { color: #ff8a8f; } }
 :root[data-theme="dark"] .spotify .error { color: #ff8a8f; }
-.sound {
-  font: inherit; font-size: 13px; color: var(--ink-soft); background: none; border: 1px solid var(--ink-soft);
-  border-radius: 999px; padding: 4px 12px; cursor: pointer;
-}
 /* Which build this is: the commit, to copy into a bug report. */
 .version {
   margin: 0; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink-soft);
   -webkit-user-select: all; user-select: all;
 }
 .version:empty { display: none; }
-.sound:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .hub, .wheel .label { transition: none; } }
 </style>
 </head>
@@ -211,7 +206,7 @@ body {
     </div>
   </div>
 </div>
-<p class="notes">Drag around the wheel to scroll, tap the center to select, tap <b>MENU</b> to go back, hold it to switch the backlight. Pick a song (or Shuffle Songs) to get to Now Playing, where the wheel sets the volume, the center button switches to scrubbing, and holding it opens Speakers. Keyboard: <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd> (hold for backlight), <kbd>Space</kbd> play/pause, <kbd>←</kbd> <kbd>→</kbd> previous/next, <kbd>H</kbd> the Hold switch (on the top edge).<span id="sample-note"><br>Library and speakers are sample data, not your Spotify or Sonos, and nothing makes a sound. Sign in to Spotify below to use your own.</span></p>
+<p class="notes">Drag around the wheel to scroll, tap the center to select, tap <b>MENU</b> to go back, hold it to switch the backlight. Pick a song (or Shuffle Songs) to get to Now Playing, where the wheel sets the volume, the center button switches to scrubbing, and holding it opens Speakers. Keyboard: <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> <kbd>Esc</kbd> (hold for backlight), <kbd>Space</kbd> play/pause, <kbd>←</kbd> <kbd>→</kbd> previous/next, <kbd>H</kbd> the Hold switch (on the top edge). Settings → Clicker turns the click off.<span id="sample-note"><br>Library and speakers are sample data, not your Spotify or Sonos, and nothing makes a sound. Sign in to Spotify below to use your own.</span></p>
 <section class="spotify" aria-labelledby="spotify-title">
   <h2 id="spotify-title">Spotify</h2>
   <div id="signed-out" hidden>
@@ -235,11 +230,10 @@ body {
   </div>
   <p class="error" id="spotify-error" role="alert" hidden></p>
 </section>
-<button class="sound" id="sound" type="button" aria-pressed="true">Click sound: on</button>
 <p class="version" id="version"></p>
 </main>
 <script type="module">
-import init, { frame, button, forget_press, hold, wheel as wheelAt, turn, screen_size, version } from "./pkg/spod.js";
+import init, { frame, button, forget_press, hold, wheel as wheelAt, turn, screen_size, version, clicks } from "./pkg/spod.js";
 
 // --- fit the device to the viewport ----------------------------------------
 const fit = document.getElementById("fit");
@@ -441,18 +435,11 @@ if ("serviceWorker" in navigator) {
 }
 
 // --- click sound -----------------------------------------------------------
-let soundOn = true, audio = null;
-try { soundOn = localStorage.getItem("spod-sound") !== "off"; } catch {}
-const soundBtn = document.getElementById("sound");
-function renderSound() { soundBtn.textContent = "Click sound: " + (soundOn ? "on" : "off"); soundBtn.setAttribute("aria-pressed", String(soundOn)); }
-renderSound();
-soundBtn.addEventListener("click", () => {
-  soundOn = !soundOn; renderSound();
-  try { localStorage.setItem("spod-sound", soundOn ? "on" : "off"); } catch {}
-});
+// Settings → Clicker turns it on and off, as on the iPod.
+let audio = null;
 function tick() {
   if (navigator.vibrate) { try { navigator.vibrate(4); } catch {} }
-  if (!soundOn) return;
+  if (!ready || !clicks()) return;
   try {
     audio ??= new (window.AudioContext || window.webkitAudioContext)();
     const t = audio.currentTime, osc = audio.createOscillator(), gain = audio.createGain();
@@ -548,7 +535,7 @@ const KEYS = {
 // Keys typed into the Spotify panel are for it, not the iPod.
 const inPanel = (e) => e.target instanceof Element && !!e.target.closest(".spotify");
 document.addEventListener("keydown", (e) => {
-  if (e.target === soundBtn || inPanel(e)) return;
+  if (inPanel(e)) return;
   // Enter and Space on the focused Hold switch flip it, as on any button.
   if (e.target === holdSwitch && (e.key === "Enter" || e.key === " ")) return;
   if ((e.key === "h" || e.key === "H") && !e.repeat) { toggleHold(); return; }
@@ -567,7 +554,7 @@ document.addEventListener("keydown", (e) => {
 });
 document.addEventListener("keyup", (e) => {
   const name = KEYS[e.key];
-  if (!name || e.target === soundBtn || e.target === holdSwitch || inPanel(e)) return;
+  if (!name || e.target === holdSwitch || inPanel(e)) return;
   if (name === "menu") flash(labels.menu);
   buttonUp(name);
 });
